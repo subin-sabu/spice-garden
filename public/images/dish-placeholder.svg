@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480">
+  <defs>
+    <radialGradient id="linen">
+      <stop stop-color="#fbf8ed"/>
+      <stop offset="1" stop-color="#e9e3d3"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#linen)" d="M0 0h720v480H0z"/>
+  <g fill="none" stroke="#8b9578" stroke-width="2" opacity=".28">
+    <path d="M-16 144C45 105 86 49 104-20M23 115C5 78 9 47 42 15c17 35 10 63-19 100Zm36-39c16-29 47-42 86-38-16 29-44 41-86 38ZM736 337c-61 39-102 95-120 164m81-135c18 37 14 68-19 100-17-35-10-63 19-100Zm-36 39c-16 29-47 42-86 38 16-29 44-41 86-38Z"/>
+  </g>
+  <circle cx="360" cy="240" r="87" fill="#f5f2e7" stroke="#d1ccba" stroke-width="2"/>
+  <circle cx="360" cy="240" r="73" fill="none" stroke="#ddd8c8" stroke-width="2"/>
+  <g fill="none" stroke="#536a52" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M315 270h90m-81-13h72c0-21-16-38-36-38s-36 17-36 38Zm36-38v-7m-7 0h14"/>
+  </g>
+</svg>

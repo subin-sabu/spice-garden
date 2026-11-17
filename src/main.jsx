@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { InstallPrompt } from './InstallPrompt.jsx';
-import { keralaDate, isSpecial, isAvailable, formatPrice, dishMedia, homepageCopy, matchesSearch, searchTerms } from './menu.js';
+import { keralaDate, isSpecial, isAvailable, formatPrice, dishMedia, homepageCopy, matchesSearch, searchTerms, homepageCollections } from './menu.js';
 import { Icon } from './Icon.jsx';
 import { DishCard, DishDialog } from './Dining.jsx';
 import './styles.css';
@@ -16,6 +16,7 @@ function App() {
   const [category, setCategory] = useState('all');
   const [diet, setDiet] = useState('all');
   const [query, setQuery] = useState('');
+  const [settledQuery, setSettledQuery] = useState('');
   const [menu, setMenu] = useState(null);
   const plate = usePlate(tableLabel);
   const [status, setStatus] = useState(liveMenuEnabled ? 'loading' : 'unconfigured');
@@ -39,6 +40,12 @@ function App() {
     return () => { active = false; };
   }, [attempt]);
 
+  useEffect(() => {
+    if (!query) return;
+    const timer = window.setTimeout(() => setSettledQuery(query), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
   const items = menu ? menu.items.map((item) => {
     const images = menu.images.filter((image) => image.item_id === item.id);
     return {
@@ -50,37 +57,39 @@ function App() {
       pairing: item.paired_item_id ? { id: item.paired_item_id } : null,
     };
   }) : [];
-  const chefCollection = menu?.collections.find((entry) => entry.id === 'chef-picks');
-  const picks = chefCollection ? menu.memberships.filter((row) => row.collection_id === chefCollection.id)
-    .map((row) => items.find((item) => item.id === row.item_id)).filter(isAvailable) : [];
+  const collections = homepageCollections(menu?.collections ?? [], menu?.memberships ?? [], items, date);
   const featured = items.find((item) => item.id === menu?.homepage?.featured_item_id && isAvailable(item));
   const featuredPhoto = featured && dishMedia(featured).images[0];
   const copy = homepageCopy(menu?.homepage, featured);
   const bannerPath = menu?.homepage?.default_banner_path;
   const heroPhoto = featuredPhoto || (bannerPath ? photoUrl(bannerPath) : null);
-  const regularCategories = (menu?.categories ?? []).map(({ id, name }) => [id, name]);
-  const allCategories = [['all', 'All dishes'], ...regularCategories,
-    ...(menu?.collections ?? []).map(({id, name}) => [`collection:${id}`, name])];
-  const collectionOrder = new Map(menu?.memberships.filter((row) => `collection:${row.collection_id}` === category)
-    .map((row, index) => [row.item_id, index]));
+  const allCategories = [['all', 'All dishes'], ...(menu?.categories ?? []).map(({ id, name }) => [id, name])];
   const selectedDish = items.find((item) => item.id === selectedId);
   const pairing = items.find((item) => item.id === selectedDish?.pairing?.id);
   const openDish = (item) => setSelectedId(item.id);
 
-  const words = searchTerms(query);
+  const words = searchTerms(query && settledQuery);
   const hasFilters = category !== 'all' || diet !== 'all' || words.length > 0;
   const sectionName = allCategories.find(([id]) => id === category)?.[1];
   const results = items.filter((item) => {
-    const categoryMatches = category === 'all' || (category.startsWith('collection:') ? (collectionOrder.has(item.id) || (category === 'collection:today' && isSpecial(item, date))) : category === 'special' ? isSpecial(item, date) : item.category === category);
+    const categoryMatches = words.length > 0 || category === 'all' || item.category === category;
     const dietMatches = diet === 'all' || item.diet === diet;
     return categoryMatches && dietMatches &&
       matchesSearch(words, item.name, item.short_description, item.description, item.category_name);
-  }).sort((first, second) => Number(isAvailable(second)) - Number(isAvailable(first)) ||
-    (collectionOrder.get(first.id) ?? 0) - (collectionOrder.get(second.id) ?? 0));
+  }).sort((first, second) => Number(isAvailable(second)) - Number(isAvailable(first)));
+
+  function clearSearch() {
+    setQuery('');
+    setSettledQuery('');
+  }
+
+  function leaveSearch(event) {
+    if (!event.relatedTarget?.closest?.('.search-box, [data-search-results]')) clearSearch();
+  }
 
   function resetFilters() {
     setCategory('all');
-    setQuery('');
+    clearSearch();
     setDiet('all');
   }
 
@@ -111,11 +120,11 @@ function App() {
           </div>
         </section>
 
-        {picks.length > 0 && <section className="discovery-picks" aria-labelledby="chef-picks-title">
+        {collections.map(({ collection, dishes }, index) => <section key={collection.id} className="discovery-picks" aria-labelledby={`collection-title-${index}`}>
           <p className="eyebrow"><span /> FROM THE KITCHEN</p>
-          <h2 id="chef-picks-title">{chefCollection?.name ?? 'Chef’s Picks'}</h2>
+          <h2 id={`collection-title-${index}`}>{collection.name}</h2>
           <div className="picks-grid">
-            {picks.map((item) => {
+            {dishes.map((item) => {
               const photo = item.thumbnail_url ?? dishMedia(item).images[0];
               return <article key={item.id} className="pick-card">
                 <button className="pick-open" type="button" onClick={() => openDish(item)} aria-label={`Explore ${item.name}`}>
@@ -127,24 +136,27 @@ function App() {
               </article>;
             })}
           </div>
-        </section>}
+        </section>)}
 
         <section id="menu" aria-label="Restaurant menu">
           <div className="menu-controls">
             <div className="search-row">
-              <div className="search-box">
+              <div className="search-box" onBlur={leaveSearch}>
                 <Icon name="search" size={21} />
-                <input aria-label="Search dishes" type="search" placeholder="Search dishes"
-                  value={query} onChange={(event) => setQuery(event.target.value)} />
-                {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><Icon name="close" size={17} /></button>}
+                <input aria-label="Search dishes" type="search" placeholder="Search the full menu"
+                  value={query} onChange={(event) => {
+                    if (event.target.value) setQuery(event.target.value);
+                    else clearSearch();
+                  }} />
+                {query && <button type="button" onClick={clearSearch} aria-label="Clear search"><Icon name="close" size={17} /></button>}
               </div>
-              <select aria-label="Dietary preference" value={diet} onChange={(event) => setDiet(event.target.value)}>
+              <select aria-label="Dietary preference" value={diet} onClick={clearSearch} onChange={(event) => { clearSearch(); setDiet(event.target.value); }}>
                 <option value="all">All diets</option><option value="veg">Vegetarian</option><option value="non-veg">Non-vegetarian</option>
               </select>
             </div>
             <nav className="categories" aria-label="Menu categories">
               {allCategories.map(([id, label]) => <button key={id} type="button" aria-pressed={category === id}
-                onClick={() => setCategory(id)}>{label}</button>)}
+                onClick={() => { clearSearch(); setCategory(id); }}>{label}</button>)}
             </nav>
           </div>
 
@@ -157,12 +169,14 @@ function App() {
           {status === 'ready' && <>
             <div className="results-title"><h2>{words.length ? 'Search results' : category === 'all' ? 'The Menu' : sectionName}</h2>
               <span role="status">{results.length} {results.length === 1 ? 'dish' : 'dishes'}</span></div>
-            {results.length > 0 ? <div className="dishes">
+            {results.length > 0 ? <div className="dishes" data-search-results onBlur={leaveSearch}
+              onPointerDown={(event) => {
+                if (query && document.activeElement?.closest('.search-box') && event.target.closest?.('button')) event.preventDefault();
+              }}>
               {results.map((item, index) => <DishCard key={item.id} item={item} index={index}
                 onOpen={() => openDish(item)} plateAction={<PlateButton item={item} plate={plate} />} />)}
             </div> : <div className="notice">
-              <p>{category === 'special' && !words.length && diet === 'all' ? 'Ask your server about today’s specials.' :
-                hasFilters ? 'No dishes match your filters.' : 'Please ask your server for the current menu.'}</p>
+              <p>{hasFilters ? 'No dishes match your filters.' : 'Please ask your server for the current menu.'}</p>
               {hasFilters && <button type="button" onClick={resetFilters}>See all dishes</button>}
             </div>}
           </>}

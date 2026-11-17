@@ -185,6 +185,33 @@ function Workspace({ run, busy, setMessage }) {
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('Dishes');
   const [selected, setSelected] = useState('');
+  const panelTitle = useRef(null);
+  const revealPanel = useRef(false);
+  const drafts = useRef(new Set());
+
+  function markDraft(key, dirty = true) {
+    if (dirty) drafts.current.add(key);
+    else drafts.current.delete(key);
+  }
+
+  function navigate(nextTab, nextSelection) {
+    if (nextTab === tab && nextSelection === selected) return;
+    if (drafts.current.size && !window.confirm('Discard unsaved changes and continue? Choose Cancel to return and save.')) return;
+    drafts.current.clear();
+    revealPanel.current = true;
+    if (window.location.hash === '#dish-photos') {
+      window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+    }
+    setSelected(nextSelection);
+    setTab(nextTab);
+  }
+
+  useEffect(() => {
+    if (!revealPanel.current || !panelTitle.current) return;
+    revealPanel.current = false;
+    panelTitle.current.focus({ preventScroll: true });
+    panelTitle.current.scrollIntoView({ block: 'start' });
+  }, [tab, selected]);
   const refresh = async () => setData(await loadMenu());
   useEffect(() => { void refresh().catch((error) => setMessage(error.message)); }, []);
 
@@ -192,7 +219,10 @@ function Workspace({ run, busy, setMessage }) {
     const query = supabase.from(table);
     const saved = await checked((id ? query.update(values).eq('id', id) : query.insert(values)).select('id').single());
     await refresh();
-    if (!id) setSelected(saved.id);
+    if (!id) {
+      revealPanel.current = true;
+      setSelected(saved.id);
+    }
     setMessage('Saved.');
   });
   const remove = (table, id) => {
@@ -222,30 +252,30 @@ function Workspace({ run, busy, setMessage }) {
     <div className="admin-workspace">
     <nav className="admin-tabs" aria-label="Admin sections">
       {['Dishes','Availability','Categories','Collections','Homepage','Photo cleanup'].map((name) => <button key={name} disabled={busy}
-        aria-pressed={name === tab} onClick={() => { setSelected(''); setTab(name); }}>{name}</button>)}
+        aria-pressed={name === tab} onClick={() => { if (name !== tab) navigate(name, ''); }}>{name}</button>)}
     </nav>
-    <section className="admin-panel" aria-label={tab} aria-busy={busy}>
-    <h2 className="admin-panel-title">{tab}</h2>
+    <section className="admin-panel" key={JSON.stringify([tab, selected])} aria-label={tab} aria-busy={busy}>
+    <h2 className="admin-panel-title" ref={panelTitle} tabIndex={-1}>{tab}</h2>
     {tab === 'Dishes' && <>
-      <label>Choose dish <select disabled={busy} value={selected} onChange={(e) => setSelected(e.target.value)}>
+      <label>Choose dish <select disabled={busy} value={selected} onChange={(event) => navigate(tab, event.target.value)}>
         <option value="">New dish</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
       {dish && <div className="admin-actions"><a className="admin-jump" href="#dish-photos">Manage photos</a><button disabled={busy} onClick={() => save('menu_items', { is_available: !dish.is_available }, dish.id)}>
         {dish.is_available ? 'Mark unavailable' : 'Mark available'}
       </button></div>}
-      <DishEditor key={selected} dish={dish} data={data} busy={busy} save={save} />
+      <DishEditor dish={dish} data={data} busy={busy} save={save} onDraft={(dirty) => markDraft('dish', dirty)} />
       {!dish && <p className="admin-hint">Save the dish to add up to four photos.</p>}
       {dish && <PhotoEditor key={dish.id} dish={dish} images={data.images.filter((image) => image.item_id === dish.id)}
-        busy={busy} run={run} refresh={refresh} />}
+        busy={busy} run={run} refresh={refresh} onDraft={(dirty) => markDraft('photo', dirty)} />}
     </>}
     {tab === 'Availability' && <Availability data={data} busy={busy} save={save} />}
     {table && <>
-      <label>Choose entry <select disabled={busy} value={selected} onChange={(e) => setSelected(e.target.value)}>
+      <label>Choose entry <select disabled={busy} value={selected} onChange={(event) => navigate(tab, event.target.value)}>
         <option value="">New {tab === 'Categories' ? 'category' : 'collection'}</option>
         {rows.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
       </select></label>
       <TaxonomyEditor key={tab + selected} row={rows.find((row) => row.id === selected)} busy={busy}
-        save={(values) => save(table, values, selected)} remove={selected ? () => remove(table, selected) : null}
+        save={(values) => save(table, values, selected)} onDraft={(dirty) => markDraft('taxonomy', dirty)} remove={selected ? () => remove(table, selected) : null}
         blockedReason={categoryDishes.length ? `Move all ${categoryDishes.length} dishes before deleting this category.` :
           collectionCount ? `Remove all ${collectionCount} dishes before deleting this collection.` : ''} />
       {tab === 'Categories' && selected && <CategoryDishes dishes={categoryDishes} categories={data.categories}
@@ -317,11 +347,11 @@ function Availability({ data, busy, save }) {
   </>;
 }
 
-function TaxonomyEditor({ row, busy, save, remove, blockedReason }) {
-  return <form className="admin-form" onSubmit={(event) => {
+function TaxonomyEditor({ row, busy, save, remove, blockedReason, onDraft }) {
+  return <form className="admin-form" onChange={() => onDraft(true)} onSubmit={(event) => {
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
-    void save({ name: fields.get('name').trim(), sort_order: Number(fields.get('order')), is_visible: fields.has('visible') });
+    void save({ name: fields.get('name').trim(), sort_order: Number(fields.get('order')), is_visible: fields.has('visible') }).then((saved) => { if (saved) onDraft(false); });
   }}>
     <label>Name <input name="name" required maxLength={80} defaultValue={row?.name} /></label>
     <label>Sort order <input name="order" type="number" defaultValue={row?.sort_order ?? 0} /></label>
@@ -332,13 +362,15 @@ function TaxonomyEditor({ row, busy, save, remove, blockedReason }) {
   </form>;
 }
 
-function DishEditor({ dish, data, save, busy }) {
+function DishEditor({ dish, data, save, busy, onDraft }) {
   const values = dish ?? blankDish;
   const cover = data.images.find((image) => image.item_id === dish?.id);
   const previewPhoto = cover ? photoUrl(cover.thumbnail_path) : dishMedia(values).images[0];
   const [name, setName] = useState(values.name);
   const [shortDescription, setShortDescription] = useState(values.short_description ?? '');
   const [description, setDescription] = useState(values.description);
+  const [available, setAvailable] = useState(values.is_available);
+  useEffect(() => setAvailable(values.is_available), [values.is_available]);
   const otherDishes = useMemo(() => data.items.filter((item) => item.id !== dish?.id), [data.items, dish?.id]);
   const byName = useMemo(() => new Map(otherDishes.map((item) => [normalize(item.name), item])), [otherDishes]);
   const normalizedName = normalize(name);
@@ -354,7 +386,7 @@ function DishEditor({ dish, data, save, busy }) {
     if (!terms.length) return [];
     return otherDishes.filter((item) => matchesSearch(terms, item.name)).slice(0, 6);
   }, [otherDishes, settledName]);
-  return <form className="admin-form" onSubmit={(event) => {
+  return <form className="admin-form" onChange={() => onDraft(true)} onSubmit={(event) => {
     event.preventDefault();
     if (duplicate) return;
     const fields = new FormData(event.currentTarget);
@@ -367,7 +399,7 @@ function DishEditor({ dish, data, save, busy }) {
       ...(fields.has('clear_legacy') ? { image_urls: [], image_url: null } : {}),
       paired_item_id: text('paired_item_id') || null,
       published: fields.has('published'), is_available: fields.has('available'), sort_order: Number(text('order')),
-    }, dish?.id);
+    }, dish?.id).then((saved) => { if (saved) onDraft(false); });
   }}>
     <label>Dish name <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={120}
       aria-invalid={Boolean(duplicate)} aria-describedby="dish-name-matches" /></label>
@@ -396,7 +428,7 @@ function DishEditor({ dish, data, save, busy }) {
     {(values.image_urls?.length > 0 || values.image_url) && <label><input name="clear_legacy" type="checkbox" /> Remove imported gallery photos</label>}
     <label>Sort order <input name="order" type="number" defaultValue={values.sort_order} /></label>
     <label><input name="published" type="checkbox" defaultChecked={values.published} /> Published</label>
-    <label><input name="available" type="checkbox" defaultChecked={values.is_available} /> Available</label>
+    <label><input name="available" type="checkbox" checked={available} onChange={(event) => setAvailable(event.target.checked)} /> Available</label>
     <details className="admin-preview"><summary>Preview dish</summary>
       {previewPhoto && <img className="admin-crop" src={previewPhoto} alt={name} />}
       <article><h3>{name || 'Dish name'}</h3><p>{shortDescription || description}</p></article>
@@ -534,7 +566,7 @@ function BannerPhoto({ homepage, busy, run, refresh }) {
   </form>;
 }
 
-function PhotoEditor({ dish, images, busy, run, refresh }) {
+function PhotoEditor({ dish, images, busy, run, refresh, onDraft }) {
   const [decodeFailed, setDecodeFailed] = useState(false);
   const [file, setFile] = useState(null);
   const [crop, setCrop] = useState(centeredCrop);
@@ -595,11 +627,11 @@ function PhotoEditor({ dish, images, busy, run, refresh }) {
         });
       }}>Remove</button>
     </form>)}
-    <form className="admin-form" onSubmit={(event) => {
+    <form className="admin-form" onChange={() => onDraft(true)} onSubmit={(event) => {
       event.preventDefault();
       const form = event.currentTarget;
       const alt = new FormData(form).get('alt').trim();
-      void run(async () => { await upload(alt); form.reset(); });
+      void run(async () => { await upload(alt); form.reset(); onDraft(false); });
     }}>
       <label>Upload mode <select value={replaceId} onChange={(event) => setReplaceId(event.target.value)}>
         <option value="" disabled={limitReached}>Add gallery photo</option>{images.map((image,index) => <option key={image.id} value={image.id}>Replace photo {index + 1}</option>)}

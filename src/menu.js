@@ -26,7 +26,7 @@ export function homepageCopy(homepage, dish) {
 
 export function searchText(value) {
   return (value ?? '').normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase()
-    .replace(/biriyani|biryani/g, 'biryani')
+    .replace(/\bbiriy?/g, 'biry')
     .replace(/porotta|parotta|paratha/g, 'paratha')
     .replace(/pollichath+u/g, 'pollichathu')
     .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -40,4 +40,15 @@ export function matchesSearch(terms, ...fields) {
   if (!terms.length) return true;
   const text = searchText(fields.join(' '));
   return terms.every((term) => text.includes(term));
+}
+
+export function homepageCollections(collections, memberships, items, date) {
+  const byId = new Map(items.filter(isAvailable).map((item) => [item.id, item]));
+  return collections.filter((collection) => collection.is_visible !== false).map((collection) => {
+    const ids = new Set(memberships.filter((row) => row.collection_id === collection.id).map((row) => row.item_id));
+    if (collection.id === 'today') {
+      for (const item of byId.values()) if (isSpecial(item, date)) ids.add(item.id);
+    }
+    return { collection, dishes: Array.from(ids, (id) => byId.get(id)).filter(Boolean) };
+  }).filter(({ dishes }) => dishes.length > 0);
 }

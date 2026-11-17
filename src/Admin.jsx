@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { checked, createRecoveryClient, loadMenu, photos, photoUrl, supabase } from './backend.js';
 import './admin.css';
+import { Modal } from './Dining.jsx';
 import { PasswordField } from './PasswordField.jsx';
 import { dishMedia, homepageCopy, matchesSearch, searchTerms } from './menu.js';
 import { centeredCrop, CropControls, imageAccept, imageDecodeError, optimizePhoto } from './photo-crop.jsx';
@@ -162,7 +163,7 @@ export default function Admin() {
         </div>
       </header>
       {message && <p className="admin-message" role="status">{message}</p>}
-      <Workspace run={run} busy={busy} setMessage={setMessage} />
+      <Workspace run={run} busy={busy} message={message} setMessage={setMessage} />
     </> : <section className="admin-access">
       <div className="admin-access-photo">
         <a className="admin-brand" href="/"><img src="/icons/logo.png" alt="" width="44" height="44" />Spice Garden</a>
@@ -201,11 +202,13 @@ export default function Admin() {
   </main>;
 }
 
-function Workspace({ run, busy, setMessage }) {
+function Workspace({ run, busy, message, setMessage }) {
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('Availability');
   const [selected, setSelected] = useState('');
   const panelTitle = useRef(null);
+  const tabs = useRef(null);
+  const [dishAction, setDishAction] = useState(null);
   const revealPanel = useRef(false);
   const drafts = useRef(new Set());
 
@@ -230,7 +233,7 @@ function Workspace({ run, busy, setMessage }) {
     if (!revealPanel.current || !panelTitle.current) return;
     revealPanel.current = false;
     panelTitle.current.focus({ preventScroll: true });
-    panelTitle.current.scrollIntoView({ block: 'start' });
+    tabs.current?.scrollIntoView({ block: 'start', inline: 'nearest' });
   }, [tab, selected]);
   const refresh = async () => setData(await loadMenu());
   useEffect(() => { void refresh().catch((error) => setMessage(error.message)); }, []);
@@ -245,16 +248,16 @@ function Workspace({ run, busy, setMessage }) {
     }
     setMessage('Saved.');
   });
-  const remove = (table, id, prompt = 'Delete this entry?') => {
-    if (!window.confirm(prompt)) return;
-    void run(async () => {
+  const deleteEntry = (table, id) => run(async () => {
       await checked(supabase.from(table).delete().eq('id', id).select('id').single());
       drafts.current.clear();
       revealPanel.current = true;
       setSelected('');
       await refresh();
       setMessage('Deleted.');
-    });
+  });
+  const remove = (table, id) => {
+    if (window.confirm('Delete this entry?')) void deleteEntry(table, id);
   };
 
   if (!data) return <button disabled={busy} onClick={() => run(refresh)}>Load menu</button>;
@@ -271,8 +274,13 @@ function Workspace({ run, busy, setMessage }) {
       <div><strong>{data.categories.length}</strong><span>Categories</span></div>
       <div><strong>{data.collections.length}</strong><span>Collections</span></div>
     </div>
+    <button className="admin-report" type="button" disabled={busy} onClick={() => run(async () => {
+      const snapshot = await loadMenu();
+      const { downloadStatusReport } = await import('./status-report.js');
+      downloadStatusReport(snapshot);
+    })}>Download status report</button>
     <div className="admin-workspace">
-    <nav className="admin-tabs" aria-label="Admin sections">
+    <nav className="admin-tabs" aria-label="Admin sections" ref={tabs}>
       {['Availability','Homepage','Collections','Categories','Dishes','Photo cleanup'].map((name) => <button key={name} disabled={busy}
         aria-pressed={name === tab} onClick={() => { if (name !== tab) navigate(name, ''); }}>{name}</button>)}
     </nav>
@@ -286,12 +294,33 @@ function Workspace({ run, busy, setMessage }) {
         {dish.is_available ? 'Mark unavailable' : 'Mark available'}
       </button></div>}
       <DishEditor dish={dish} data={data} busy={busy} save={save}
-        remove={dish ? () => remove('menu_items', dish.id,
-          `Permanently delete “${dish.name}”? You can make it unavailable or unpublish it to hide it instead. Select OK to delete.`) : null} onDraft={(dirty) => markDraft('dish', dirty)} />
+        remove={dish ? () => { setMessage(''); setDishAction('options'); } : null} onDraft={(dirty) => markDraft('dish', dirty)} />
       {!dish && <p className="admin-hint">Save the dish to add up to four photos.</p>}
       {dish && <PhotoEditor key={dish.id} dish={dish} images={data.images.filter((image) => image.item_id === dish.id)}
         busy={busy} run={run} refresh={refresh} onDraft={(dirty) => markDraft('photo', dirty)} />}
     </>}
+    {dishAction && dish && tab === 'Dishes' && <Modal titleId="dish-action-title" className="admin-dish-modal"
+      onDismiss={() => { if (!busy) setDishAction(null); }}>
+      <h2 id="dish-action-title">{dishAction === 'confirm' ? 'Permanently delete this dish?' : 'Manage dish visibility'}</h2>
+      <p><strong>{dish.name}</strong></p>
+      {message && <p role="status">{message}</p>}
+      {dishAction === 'options' ? <>
+        <p>Make the dish unavailable to prevent orders, or unpublish it to hide it from the guest menu.</p>
+        <button type="button" disabled={busy || !dish.is_available} onClick={async () => {
+          if (await save('menu_items', { is_available: false }, dish.id)) setDishAction(null);
+        }}>Make it unavailable</button>
+        <button type="button" disabled={busy || !dish.published} onClick={async () => {
+          if (await save('menu_items', { published: false }, dish.id)) setDishAction(null);
+        }}>Unpublish it</button>
+        <button type="button" className="admin-delete-dish" disabled={busy}
+          onClick={() => setDishAction('confirm')}>Permanently delete</button>
+      </> : <>
+        <p>This action cannot be undone. The dish and its collection and photo links will be removed.</p>
+        <button type="button" className="admin-delete-dish admin-delete-confirm" disabled={busy} onClick={async () => {
+          if (await deleteEntry('menu_items', dish.id)) setDishAction(null);
+        }}>{busy ? 'Deleting…' : 'Delete permanently'}</button>
+      </>}
+    </Modal>}
     {tab === 'Availability' && <Availability data={data} busy={busy} save={save} />}
     {table && <>
       <label>Choose entry <select disabled={busy} value={selected} onChange={(event) => navigate(tab, event.target.value)}>
@@ -399,6 +428,8 @@ function DishEditor({ dish, data, save, busy, onDraft, remove }) {
   const [shortDescription, setShortDescription] = useState(values.short_description ?? '');
   const [description, setDescription] = useState(values.description);
   const [available, setAvailable] = useState(values.is_available);
+  const [published, setPublished] = useState(values.published);
+  useEffect(() => setPublished(values.published), [values.published]);
   useEffect(() => setAvailable(values.is_available), [values.is_available]);
   const otherDishes = useMemo(() => data.items.filter((item) => item.id !== dish?.id), [data.items, dish?.id]);
   const { duplicate, matches } = findTitleMatches(name, otherDishes);
@@ -437,7 +468,7 @@ function DishEditor({ dish, data, save, busy, onDraft, remove }) {
     </select></label>
     {(values.image_urls?.length > 0 || values.image_url) && <label><input name="clear_legacy" type="checkbox" /> Remove imported gallery photos</label>}
     <label>Sort order <input name="order" type="number" defaultValue={values.sort_order} /></label>
-    <label><input name="published" type="checkbox" defaultChecked={values.published} /> Published</label>
+    <label><input name="published" type="checkbox" checked={published} onChange={(event) => setPublished(event.target.checked)} /> Published</label>
     <label><input name="available" type="checkbox" checked={available} onChange={(event) => setAvailable(event.target.checked)} /> Available</label>
     <details className="admin-preview"><summary>Preview dish</summary>
       {previewPhoto && <img className="admin-crop" src={previewPhoto} alt={name} />}
@@ -667,6 +698,7 @@ function PhotoCleanup({ busy, run, setMessage }) {
     const paths = await checked(supabase.rpc('abandoned_menu_photos'));
     setCount(paths.length);
   });
+  useEffect(() => { void scan(); }, []);
   const clean = () => {
     if (!window.confirm('Permanently delete the eligible unreferenced photo files?')) return;
     void run(async () => {
@@ -679,7 +711,7 @@ function PhotoCleanup({ busy, run, setMessage }) {
   };
   return <section className="admin-form">
     <h2>Photo cleanup</h2>
-    <p>Scan for uploaded files that are over 24 hours old and have no dish links. Each scan checks up to 100 eligible files.</p>
+    <p>Removed or replaced photos appear immediately. Incomplete uploads become eligible after one hour. Each scan checks up to 100 files.</p>
     {count !== null && <p role="status">{count} eligible file(s) in this batch.</p>}
     <div className="admin-actions">
       <button disabled={busy} onClick={scan}>Scan storage</button>

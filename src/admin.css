@@ -119,3 +119,11 @@
 .admin-category-dishes strong { overflow-wrap: anywhere; }
 .admin-category-dishes select { width: 102px; min-width: 0; font-size: .875rem; }
 .admin .admin-delete-dish { color: #8b2c27; border-color: #d6a5a1; }
+
+.admin-tabs { scroll-margin-top: 12px; }
+.admin .admin-report { margin-bottom: 16px; }
+.admin-dish-modal { max-width: min(460px, 100%); }
+.admin-dish-modal .modal-surface { display: grid; gap: 12px; padding: 24px; }
+.admin-dish-modal h2 { margin: 0 38px 0 0; }
+.admin-dish-modal .modal-close { min-width: 36px; min-height: 36px; padding: 0; }
+.admin .admin-delete-confirm { background: #8b2c27; color: white; }

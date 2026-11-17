@@ -140,3 +140,15 @@ footer { padding: 22px 0; border-top: 1px solid var(--line); color: var(--muted)
 .install-banner button { min-height: 38px; border: 0; border-radius: 7px; cursor: pointer; }
 .install-action { background: #204a35; color: white; padding: 0 13px; }
 .install-dismiss { background: transparent; color: inherit; font-size: 1.35rem; width: 38px; }
+
+.category-bar { display: flex; align-items: center; gap: 10px; }
+.category-bar .categories { flex: 1; min-width: 0; }
+.category-picker-button, .category-picker-grid button {
+  border: 1px solid #c9d4c7; border-radius: 8px; background: var(--paper); color: var(--green); cursor: pointer;
+}
+.category-picker-button { flex: none; padding: 8px; font-size: 12px; }
+.category-picker-modal .modal-surface { padding: 22px; }
+.category-picker-modal h2 { margin: 0 40px 14px 0; }
+.category-picker-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 8px; }
+.category-picker-grid button { padding: 8px 10px; min-height: 44px; text-align: left; overflow-wrap: anywhere; }
+.category-picker-grid button[aria-pressed=true] { background: var(--green); color: white; }

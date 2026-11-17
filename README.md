@@ -15,13 +15,14 @@ Open the printed URL with `?table=07` to try the guest flow. Configure Supabase 
 
 ## Connect Supabase
 
-1. In Supabase **SQL Editor**, apply any missing files from the sequence below. If the default banner migration is already applied, run only `20261117030000_protect_collection_memberships.sql`. On a new project, run these files in this order:
+1. In Supabase **SQL Editor**, apply any missing files from the sequence below. If the earlier migrations are already applied, run only `20261117040000_unique_taxonomy_titles.sql`. If it reports duplicate category or collection titles, rename or consolidate those entries before retrying. On a new project, run these files in this order:
    - `supabase/schema.sql`
    - `supabase/migrations/20261115000000_menu_admin.sql`
    - `supabase/migrations/20261116000000_email_otp_photos.sql` (installs the photo triggers and cleanup)
    - `supabase/migrations/20261117010000_password_admin.sql`
    - `supabase/migrations/20261117020000_default_banner.sql`
    - `supabase/migrations/20261117030000_protect_collection_memberships.sql`
+   - `supabase/migrations/20261117040000_unique_taxonomy_titles.sql`
 2. Optional for a fresh test database: run `supabase/seed-demo.sql` once to load demo dishes into Supabase. Add their photos through the admin. Old demo records using bundled photo paths require replacements through the admin. Use **Remove imported gallery photos** in the dish editor to clear those references and free photo slots.
 3. Copy `.env.example` to `.env.local`. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from the Supabase **Connect** dialog. Add those same variables in Netlify and trigger a new build. Keep service-role keys out of the frontend.
 4. In **Authentication**, enable the **Email** provider and disable **Allow new users to sign up**. If the project is dedicated to this menu, disable the previously configured Google provider.
@@ -53,7 +54,7 @@ Configure custom SMTP if recovery emails must go to staff outside the Supabase p
 
 ## Manage the menu
 
-- **Dishes** supports editing names and descriptions, setting dietary type, prices, visibility and availability, and selecting an existing partner. Normalized duplicate names are blocked by a database unique index and the form flags some common spelling variants.
+- **Dishes** supports editing names and descriptions, setting dietary type, prices, visibility and availability, selecting an existing partner, and permanently deleting a dish after confirmation. Normalized duplicate names are blocked by a database unique index and the form flags some common spelling variants.
 - **Availability** lists all dishes and lets staff switch each dish between available and unavailable without opening its editor. Choose category, alphabetical, or unavailable-first view. Drafts are labelled.
 - **Categories** supports renaming, ordering, hiding, moving dishes to another category, and deleting empty categories. Hiding a category also hides its dishes from the guest menu and collections.
 - **Collections** supports adding existing dishes, ordering them, and changing the collection name and visibility. Remove every member before deleting a collection. Chef’s Picks works with or without a pairing. A link appears when the partner is visible on the guest menu. Each visible collection with available dishes appears as a separate homepage section. The full menu keeps its regular categories, and search looks across categories while applying the selected dietary filter.

@@ -17,6 +17,26 @@ function photoId() {
 
 const normalize = (name) => name.trim().replace(/\s+/g, ' ').toLowerCase();
 
+function findTitleMatches(name, entries, editingId) {
+  const title = normalize(name);
+  const terms = searchTerms(title);
+  const candidates = entries.filter((entry) => entry.id !== editingId);
+  const duplicate = candidates.find((entry) => normalize(entry.name) === title);
+  const matches = title.length >= 2 && terms.length && !duplicate
+    ? candidates.filter((entry) => matchesSearch(terms, entry.name)).slice(0, 6) : [];
+  return { duplicate, matches };
+}
+
+function TitleMatches({ duplicate, matches }) {
+  return <div id="admin-title-matches" className="admin-name-matches" aria-live="polite">
+    {duplicate && <p>“{duplicate.name}” already exists.</p>}
+    {matches.length > 0 && <>
+      <p>Similar titles</p>
+      <ul>{matches.map((entry) => <li key={entry.id}>{entry.name}</li>)}</ul>
+    </>}
+  </div>;
+}
+
 export default function Admin() {
   const [stage, setStage] = useState(supabase ? 'checking' : 'offline');
   const [account, setAccount] = useState('');
@@ -183,7 +203,7 @@ export default function Admin() {
 
 function Workspace({ run, busy, setMessage }) {
   const [data, setData] = useState(null);
-  const [tab, setTab] = useState('Dishes');
+  const [tab, setTab] = useState('Availability');
   const [selected, setSelected] = useState('');
   const panelTitle = useRef(null);
   const revealPanel = useRef(false);
@@ -225,10 +245,12 @@ function Workspace({ run, busy, setMessage }) {
     }
     setMessage('Saved.');
   });
-  const remove = (table, id) => {
-    if (!window.confirm('Delete this entry?')) return;
+  const remove = (table, id, prompt = 'Delete this entry?') => {
+    if (!window.confirm(prompt)) return;
     void run(async () => {
       await checked(supabase.from(table).delete().eq('id', id).select('id').single());
+      drafts.current.clear();
+      revealPanel.current = true;
       setSelected('');
       await refresh();
       setMessage('Deleted.');
@@ -251,7 +273,7 @@ function Workspace({ run, busy, setMessage }) {
     </div>
     <div className="admin-workspace">
     <nav className="admin-tabs" aria-label="Admin sections">
-      {['Dishes','Availability','Categories','Collections','Homepage','Photo cleanup'].map((name) => <button key={name} disabled={busy}
+      {['Availability','Homepage','Collections','Categories','Dishes','Photo cleanup'].map((name) => <button key={name} disabled={busy}
         aria-pressed={name === tab} onClick={() => { if (name !== tab) navigate(name, ''); }}>{name}</button>)}
     </nav>
     <section className="admin-panel" key={JSON.stringify([tab, selected])} aria-label={tab} aria-busy={busy}>
@@ -263,7 +285,9 @@ function Workspace({ run, busy, setMessage }) {
       {dish && <div className="admin-actions"><a className="admin-jump" href="#dish-photos">Manage photos</a><button disabled={busy} onClick={() => save('menu_items', { is_available: !dish.is_available }, dish.id)}>
         {dish.is_available ? 'Mark unavailable' : 'Mark available'}
       </button></div>}
-      <DishEditor dish={dish} data={data} busy={busy} save={save} onDraft={(dirty) => markDraft('dish', dirty)} />
+      <DishEditor dish={dish} data={data} busy={busy} save={save}
+        remove={dish ? () => remove('menu_items', dish.id,
+          `Permanently delete “${dish.name}”? You can make it unavailable or unpublish it to hide it instead. Select OK to delete.`) : null} onDraft={(dirty) => markDraft('dish', dirty)} />
       {!dish && <p className="admin-hint">Save the dish to add up to four photos.</p>}
       {dish && <PhotoEditor key={dish.id} dish={dish} images={data.images.filter((image) => image.item_id === dish.id)}
         busy={busy} run={run} refresh={refresh} onDraft={(dirty) => markDraft('photo', dirty)} />}
@@ -274,7 +298,7 @@ function Workspace({ run, busy, setMessage }) {
         <option value="">New {tab === 'Categories' ? 'category' : 'collection'}</option>
         {rows.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
       </select></label>
-      <TaxonomyEditor key={tab + selected} row={rows.find((row) => row.id === selected)} busy={busy}
+      <TaxonomyEditor key={tab + selected} row={rows.find((row) => row.id === selected)} entries={rows} busy={busy}
         save={(values) => save(table, values, selected)} onDraft={(dirty) => markDraft('taxonomy', dirty)} remove={selected ? () => remove(table, selected) : null}
         blockedReason={categoryDishes.length ? `Move all ${categoryDishes.length} dishes before deleting this category.` :
           collectionCount ? `Remove all ${collectionCount} dishes before deleting this collection.` : ''} />
@@ -295,7 +319,7 @@ function Workspace({ run, busy, setMessage }) {
 function CategoryDishes({ dishes, categories, categoryId, busy, save }) {
   return <section className="admin-form">
     <h2>Dishes in this category ({dishes.length})</h2>
-    {dishes.length === 0 ? <p>This category is empty.</p> : <ul className="admin-availability">
+    {dishes.length === 0 ? <p>This category is empty.</p> : <ul className="admin-availability admin-category-dishes">
       {dishes.map((dish) => <li key={dish.id}>
         <strong>{dish.name}</strong>
         <select aria-label={`Move ${dish.name} to another category`} value="" disabled={busy || categories.length < 2}
@@ -347,22 +371,27 @@ function Availability({ data, busy, save }) {
   </>;
 }
 
-function TaxonomyEditor({ row, busy, save, remove, blockedReason, onDraft }) {
+function TaxonomyEditor({ row, entries, busy, save, remove, blockedReason, onDraft }) {
+  const [name, setName] = useState(row?.name ?? '');
+  const { duplicate, matches } = findTitleMatches(name, entries, row?.id);
   return <form className="admin-form" onChange={() => onDraft(true)} onSubmit={(event) => {
     event.preventDefault();
+    if (duplicate || !normalize(name)) return;
     const fields = new FormData(event.currentTarget);
     void save({ name: fields.get('name').trim(), sort_order: Number(fields.get('order')), is_visible: fields.has('visible') }).then((saved) => { if (saved) onDraft(false); });
   }}>
-    <label>Name <input name="name" required maxLength={80} defaultValue={row?.name} /></label>
+    <label>Name <input name="name" required maxLength={80} value={name}
+      onChange={(event) => setName(event.target.value)} aria-invalid={Boolean(duplicate)} aria-describedby="admin-title-matches" /></label>
+    <TitleMatches duplicate={duplicate} matches={matches} />
     <label>Sort order <input name="order" type="number" defaultValue={row?.sort_order ?? 0} /></label>
     <label><input name="visible" type="checkbox" defaultChecked={row?.is_visible ?? true} /> Visible on guest menu</label>
     {blockedReason && <p>{blockedReason}</p>}
-    <div className="admin-actions"><button disabled={busy}>Save</button>
+    <div className="admin-actions"><button disabled={busy || Boolean(duplicate)}>Save</button>
       {remove && <button type="button" disabled={busy || Boolean(blockedReason)} onClick={remove}>Delete</button>}</div>
   </form>;
 }
 
-function DishEditor({ dish, data, save, busy, onDraft }) {
+function DishEditor({ dish, data, save, busy, onDraft, remove }) {
   const values = dish ?? blankDish;
   const cover = data.images.find((image) => image.item_id === dish?.id);
   const previewPhoto = cover ? photoUrl(cover.thumbnail_path) : dishMedia(values).images[0];
@@ -372,20 +401,7 @@ function DishEditor({ dish, data, save, busy, onDraft }) {
   const [available, setAvailable] = useState(values.is_available);
   useEffect(() => setAvailable(values.is_available), [values.is_available]);
   const otherDishes = useMemo(() => data.items.filter((item) => item.id !== dish?.id), [data.items, dish?.id]);
-  const byName = useMemo(() => new Map(otherDishes.map((item) => [normalize(item.name), item])), [otherDishes]);
-  const normalizedName = normalize(name);
-  const duplicate = byName.get(normalizedName);
-  const [settledName, setSettledName] = useState('');
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSettledName(normalizedName), 350);
-    return () => window.clearTimeout(timer);
-  }, [normalizedName]);
-  const matches = useMemo(() => {
-    if (settledName.length < 2) return [];
-    const terms = searchTerms(settledName);
-    if (!terms.length) return [];
-    return otherDishes.filter((item) => matchesSearch(terms, item.name)).slice(0, 6);
-  }, [otherDishes, settledName]);
+  const { duplicate, matches } = findTitleMatches(name, otherDishes);
   return <form className="admin-form" onChange={() => onDraft(true)} onSubmit={(event) => {
     event.preventDefault();
     if (duplicate) return;
@@ -402,14 +418,8 @@ function DishEditor({ dish, data, save, busy, onDraft }) {
     }, dish?.id).then((saved) => { if (saved) onDraft(false); });
   }}>
     <label>Dish name <input value={name} onChange={(event) => setName(event.target.value)} required maxLength={120}
-      aria-invalid={Boolean(duplicate)} aria-describedby="dish-name-matches" /></label>
-    <div id="dish-name-matches" className="admin-name-matches" aria-live="polite">
-      {settledName === normalizedName && duplicate && <p>A dish named “{duplicate.name}” already exists.</p>}
-      {settledName === normalizedName && !duplicate && matches.length > 0 && <>
-        <p>Existing dishes with similar names</p>
-        <ul>{matches.map((item) => <li key={item.id}>{item.name}</li>)}</ul>
-      </>}
-    </div>
+      aria-invalid={Boolean(duplicate)} aria-describedby="admin-title-matches" /></label>
+    <TitleMatches duplicate={duplicate} matches={matches} />
     <label>Regular category <select name="category" required defaultValue={values.category}>
       <option value="">Select category</option>{data.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
     </select></label>
@@ -434,7 +444,10 @@ function DishEditor({ dish, data, save, busy, onDraft }) {
       <article><h3>{name || 'Dish name'}</h3><p>{shortDescription || description}</p></article>
       {description && <p>{description}</p>}
     </details>
-    <button disabled={busy || Boolean(duplicate)}>Save dish</button>
+    <div className="admin-actions">
+      <button disabled={busy || Boolean(duplicate)}>Save dish</button>
+      {remove && <button type="button" className="admin-delete-dish" disabled={busy} onClick={remove}>Delete dish</button>}
+    </div>
   </form>;
 }
 

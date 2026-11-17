@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { InstallPrompt } from './InstallPrompt.jsx';
 import { keralaDate, isSpecial, isAvailable, formatPrice, dishMedia, homepageCopy, matchesSearch, searchTerms, homepageCollections } from './menu.js';
 import { Icon } from './Icon.jsx';
-import { DishCard, DishDialog } from './Dining.jsx';
+import { DishCard, DishDialog, Modal } from './Dining.jsx';
 import './styles.css';
 import { liveMenuEnabled, loadGuestMenu, photoUrl } from './backend.js';
 import { Plate, PlateButton, usePlate } from './Plate.jsx';
@@ -14,6 +14,7 @@ const table = new URLSearchParams(window.location.search).get('table')?.trim();
 const tableLabel = table && /^[a-z0-9-]{1,12}$/i.test(table) ? table.toUpperCase() : null;
 function App() {
   const [category, setCategory] = useState('all');
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [diet, setDiet] = useState('all');
   const [query, setQuery] = useState('');
   const [settledQuery, setSettledQuery] = useState('');
@@ -83,8 +84,10 @@ function App() {
     setSettledQuery('');
   }
 
-  function leaveSearch(event) {
-    if (!event.relatedTarget?.closest?.('.search-box, [data-search-results]')) clearSearch();
+  function chooseCategory(id) {
+    clearSearch();
+    setCategory(id);
+    setCategoryPickerOpen(false);
   }
 
   function resetFilters() {
@@ -141,7 +144,7 @@ function App() {
         <section id="menu" aria-label="Restaurant menu">
           <div className="menu-controls">
             <div className="search-row">
-              <div className="search-box" onBlur={leaveSearch}>
+              <div className="search-box">
                 <Icon name="search" size={21} />
                 <input aria-label="Search dishes" type="search" placeholder="Search the full menu"
                   value={query} onChange={(event) => {
@@ -150,14 +153,18 @@ function App() {
                   }} />
                 {query && <button type="button" onClick={clearSearch} aria-label="Clear search"><Icon name="close" size={17} /></button>}
               </div>
-              <select aria-label="Dietary preference" value={diet} onClick={clearSearch} onChange={(event) => { clearSearch(); setDiet(event.target.value); }}>
+              <select aria-label="Dietary preference" value={diet} onChange={(event) => setDiet(event.target.value)}>
                 <option value="all">All diets</option><option value="veg">Vegetarian</option><option value="non-veg">Non-vegetarian</option>
               </select>
             </div>
-            <nav className="categories" aria-label="Menu categories">
-              {allCategories.map(([id, label]) => <button key={id} type="button" aria-pressed={category === id}
-                onClick={() => { clearSearch(); setCategory(id); }}>{label}</button>)}
-            </nav>
+            <div className="category-bar">
+              <nav className="categories" aria-label="Menu categories">
+                {allCategories.map(([id, label]) => <button key={id} type="button" aria-pressed={category === id}
+                  onClick={() => chooseCategory(id)}>{label}</button>)}
+              </nav>
+              {allCategories.length > 1 && <button className="category-picker-button" type="button" aria-haspopup="dialog"
+                onClick={() => setCategoryPickerOpen(true)}>View categories</button>}
+            </div>
           </div>
 
           {status === 'unconfigured' && <div className="notice" role="status">The online menu is being set up. Please ask your server for the current menu.</div>}
@@ -169,10 +176,7 @@ function App() {
           {status === 'ready' && <>
             <div className="results-title"><h2>{words.length ? 'Search results' : category === 'all' ? 'The Menu' : sectionName}</h2>
               <span role="status">{results.length} {results.length === 1 ? 'dish' : 'dishes'}</span></div>
-            {results.length > 0 ? <div className="dishes" data-search-results onBlur={leaveSearch}
-              onPointerDown={(event) => {
-                if (query && document.activeElement?.closest('.search-box') && event.target.closest?.('button')) event.preventDefault();
-              }}>
+            {results.length > 0 ? <div className="dishes">
               {results.map((item, index) => <DishCard key={item.id} item={item} index={index}
                 onOpen={() => openDish(item)} plateAction={<PlateButton item={item} plate={plate} />} />)}
             </div> : <div className="notice">
@@ -188,6 +192,14 @@ function App() {
         <p>Please ask your server about allergens and availability.</p>
       </div></footer>
 
+      {categoryPickerOpen && <Modal titleId="category-picker-title" className="category-picker-modal"
+        onDismiss={() => setCategoryPickerOpen(false)}>
+        <h2 id="category-picker-title">All categories</h2>
+        <div className="category-picker-grid">
+          {allCategories.map(([id, label]) => <button key={id} type="button" aria-pressed={id === category}
+            onClick={() => chooseCategory(id)}>{label}</button>)}
+        </div>
+      </Modal>}
       <Plate plate={plate} items={items} tableLabel={tableLabel} />
       {selectedDish && <DishDialog key={selectedDish.id} item={selectedDish} date={date}
         plateAction={<PlateButton item={selectedDish} plate={plate} />} pairing={pairing} onOpenPairing={() => openDish(pairing)}

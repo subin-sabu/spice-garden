@@ -114,3 +114,8 @@
 .admin-brand img { filter: brightness(0) saturate(100%) invert(91%) sepia(20%) saturate(429%) hue-rotate(26deg) brightness(105%); }
 
 .admin-panel-title { scroll-margin-top: 18px; }
+
+.admin-category-dishes li { gap: 8px; }
+.admin-category-dishes strong { overflow-wrap: anywhere; }
+.admin-category-dishes select { width: 102px; min-width: 0; font-size: .875rem; }
+.admin .admin-delete-dish { color: #8b2c27; border-color: #d6a5a1; }

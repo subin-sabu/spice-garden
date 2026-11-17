@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { InstallPrompt } from './InstallPrompt.jsx';
-import { keralaDate, isSpecial, isAvailable, formatPrice, dishMedia } from './menu.js';
+import { keralaDate, isSpecial, isAvailable, formatPrice, dishMedia, homepageCopy, matchesSearch, searchTerms } from './menu.js';
 import { Icon } from './Icon.jsx';
 import { DishCard, DishDialog } from './Dining.jsx';
 import './styles.css';
@@ -55,6 +55,7 @@ function App() {
     .map((row) => items.find((item) => item.id === row.item_id)).filter(isAvailable) : [];
   const featured = items.find((item) => item.id === menu?.homepage?.featured_item_id && isAvailable(item));
   const featuredPhoto = featured && dishMedia(featured).images[0];
+  const copy = homepageCopy(menu?.homepage, featured);
   const bannerPath = menu?.homepage?.default_banner_path;
   const heroPhoto = featuredPhoto || (bannerPath ? photoUrl(bannerPath) : null);
   const regularCategories = (menu?.categories ?? []).map(({ id, name }) => [id, name]);
@@ -66,14 +67,14 @@ function App() {
   const pairing = items.find((item) => item.id === selectedDish?.pairing?.id);
   const openDish = (item) => setSelectedId(item.id);
 
-  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const words = searchTerms(query);
   const hasFilters = category !== 'all' || diet !== 'all' || words.length > 0;
   const sectionName = allCategories.find(([id]) => id === category)?.[1];
   const results = items.filter((item) => {
     const categoryMatches = category === 'all' || (category.startsWith('collection:') ? (collectionOrder.has(item.id) || (category === 'collection:today' && isSpecial(item, date))) : category === 'special' ? isSpecial(item, date) : item.category === category);
     const dietMatches = diet === 'all' || item.diet === diet;
-    const searchable = `${item.name} ${item.short_description ?? ''} ${item.description} ${regularCategories.find(([id]) => id === item.category)?.[1] ?? ''}`.toLowerCase();
-    return categoryMatches && dietMatches && words.every((word) => searchable.includes(word));
+    return categoryMatches && dietMatches &&
+      matchesSearch(words, item.name, item.short_description, item.description, item.category_name);
   }).sort((first, second) => Number(isAvailable(second)) - Number(isAvailable(first)) ||
     (collectionOrder.get(first.id) ?? 0) - (collectionOrder.get(second.id) ?? 0));
 
@@ -98,8 +99,8 @@ function App() {
           {heroPhoto && <img className="discovery-hero-photo" src={heroPhoto} alt="" fetchPriority="high" />}
           <div className="hero-copy">
             <p className="eyebrow"><span /> SPICE GARDEN · KOVALAM</p>
-            <h1 id="hero-title">{(featured && menu?.homepage?.headline_override) || featured?.name || 'Spice Garden'}</h1>
-            <p className="intro">{(featured && menu?.homepage?.subtitle_override) || featured?.tasting_note || featured?.short_description || featured?.description || 'Coastal Kerala cooking at Aadisaktthi Resorts & Spa.'}</p>
+            <h1 id="hero-title">{copy.headline}</h1>
+            <p className="intro">{copy.subtitle}</p>
             {featured && <p className="hero-price">{formatPrice(featured.price_paise)}</p>}
             <div className="discovery-hero-actions">
               {featured && <button className="discovery-action" type="button" onClick={() => openDish(featured)}>
@@ -134,7 +135,7 @@ function App() {
               <div className="search-box">
                 <Icon name="search" size={21} />
                 <input aria-label="Search dishes" type="search" placeholder="Search dishes"
-                  value={query} onChange={(event) => { setQuery(event.target.value); setCategory('all'); }} />
+                  value={query} onChange={(event) => setQuery(event.target.value)} />
                 {query && <button type="button" onClick={() => setQuery('')} aria-label="Clear search"><Icon name="close" size={17} /></button>}
               </div>
               <select aria-label="Dietary preference" value={diet} onChange={(event) => setDiet(event.target.value)}>

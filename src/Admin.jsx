@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { checked, createRecoveryClient, loadMenu, photos, photoUrl, supabase } from './backend.js';
 import './admin.css';
 import { PasswordField } from './PasswordField.jsx';
-import { dishMedia } from './menu.js';
-import { centeredCrop, CropControls, optimizePhoto } from './photo-crop.jsx';
+import { dishMedia, homepageCopy, matchesSearch, searchTerms } from './menu.js';
+import { centeredCrop, CropControls, imageAccept, imageDecodeError, optimizePhoto } from './photo-crop.jsx';
 
 const blankDish = { name: '', category: '', description: '', short_description: '', diet: 'veg',
   price_paise: null, paired_item_id: null, published: false, is_available: true, sort_order: 0 };
@@ -16,7 +16,6 @@ function photoId() {
 }
 
 const normalize = (name) => name.trim().replace(/\s+/g, ' ').toLowerCase();
-const similar = (name) => normalize(name).replace(/biriyani|biryani/g, 'biriyani').replace(/porotta|parotta|paratha/g, 'paratha');
 
 export default function Admin() {
   const [stage, setStage] = useState(supabase ? 'checking' : 'offline');
@@ -351,8 +350,9 @@ function DishEditor({ dish, data, save, busy }) {
   }, [normalizedName]);
   const matches = useMemo(() => {
     if (settledName.length < 2) return [];
-    const query = similar(settledName);
-    return otherDishes.filter((item) => similar(item.name).includes(query)).slice(0, 6);
+    const terms = searchTerms(settledName);
+    if (!terms.length) return [];
+    return otherDishes.filter((item) => matchesSearch(terms, item.name)).slice(0, 6);
   }, [otherDishes, settledName]);
   return <form className="admin-form" onSubmit={(event) => {
     event.preventDefault();
@@ -447,6 +447,7 @@ function Homepage({ data, busy, save }) {
   const [headline, setHeadline] = useState(homepage.headline_override ?? '');
   const [subtitle, setSubtitle] = useState(homepage.subtitle_override ?? '');
   const feature = active.find((item) => item.id === dishId);
+  const copy = homepageCopy({ headline_override: headline, subtitle_override: subtitle }, feature);
   const cover = data.images.find((image) => image.item_id === feature?.id);
   const defaultPhoto = homepage.default_banner_path ? photoUrl(homepage.default_banner_path) : null;
   const image = (cover ? photoUrl(cover.image_path) : feature?.image_urls?.[0] || feature?.image_url) || defaultPhoto;
@@ -465,8 +466,8 @@ function Homepage({ data, busy, save }) {
     <label>Subtitle override <textarea name="subtitle" maxLength={250} value={subtitle} onChange={(event) => setSubtitle(event.target.value)} /></label>
     <div className="admin-preview">
       {image && <img className="admin-crop" src={image} alt="" />}
-      <h2>{feature ? headline || feature.name : 'Spice Garden'}</h2>
-      <p>{feature ? subtitle || feature.short_description || feature.description : 'Coastal Kerala cooking at Aadisaktthi Resorts & Spa.'}</p>
+      <h2>{copy.headline}</h2>
+      <p>{copy.subtitle}</p>
     </div>
     <button disabled={busy}>Save homepage</button>
   </form>;
@@ -516,10 +517,10 @@ function BannerPhoto({ homepage, busy, run, refresh }) {
     <p>Shown when there is no available featured dish photo.</p>
     {!ready && <p role="alert">Run the default banner migration in Supabase to enable uploads.</p>}
     {path ? <img className="admin-banner-preview" src={photoUrl(path)} alt="Current default restaurant banner" /> : <p>No default banner uploaded.</p>}
-    <label>Choose banner image <input key={inputKey} type="file" accept="image/jpeg,image/png,image/webp" disabled={busy}
+    <label>Choose banner image <input key={inputKey} type="file" accept={imageAccept} disabled={busy}
       onChange={(event) => { setStatus(''); setUploadError(''); setCropReady(false); setCrop(centeredCrop); setFile(event.target.files[0] ?? null); setCropKey((key) => key + 1); }} /></label>
     {file && <CropControls key={cropKey} file={file} ratio={16 / 9} crop={crop} setCrop={setCrop} busy={busy}
-      onReady={() => setCropReady(true)} onError={() => setUploadError('This image could not be opened. Choose a JPEG, PNG, or WebP file.')} />}
+      onReady={() => setCropReady(true)} onError={() => setUploadError(imageDecodeError)} />}
     <label><input type="checkbox" checked={showNow} disabled={busy} onChange={(event) => setShowNow(event.target.checked)} /> Show this banner on the homepage now</label>
     {uploadError && <p className="admin-message" role="alert">{uploadError}</p>}
     {status && <p className="banner-status" role="status">{busy && <span className="admin-spinner" aria-hidden="true" />}{status}</p>}
@@ -534,6 +535,7 @@ function BannerPhoto({ homepage, busy, run, refresh }) {
 }
 
 function PhotoEditor({ dish, images, busy, run, refresh }) {
+  const [decodeFailed, setDecodeFailed] = useState(false);
   const [file, setFile] = useState(null);
   const [crop, setCrop] = useState(centeredCrop);
   const [cropKey, setCropKey] = useState(0);
@@ -602,13 +604,14 @@ function PhotoEditor({ dish, images, busy, run, refresh }) {
       <label>Upload mode <select value={replaceId} onChange={(event) => setReplaceId(event.target.value)}>
         <option value="" disabled={limitReached}>Add gallery photo</option>{images.map((image,index) => <option key={image.id} value={image.id}>Replace photo {index + 1}</option>)}
       </select></label>
-      <label>Choose image <input type="file" accept="image/jpeg,image/png,image/webp" required
+      <label>Choose image <input type="file" accept={imageAccept} required
         disabled={busy} onChange={(event) => {
-          setCrop(centeredCrop); setCropKey((key) => key + 1); setFile(event.target.files[0] ?? null);
+          setDecodeFailed(false); setCrop(centeredCrop); setCropKey((key) => key + 1); setFile(event.target.files[0] ?? null);
         }} /></label>
-      {file && <CropControls key={cropKey} file={file} ratio={640 / 420} crop={crop} setCrop={setCrop} busy={busy} />}
+      {file && <CropControls key={cropKey} file={file} ratio={640 / 420} crop={crop} setCrop={setCrop} busy={busy} onError={() => setDecodeFailed(true)} />}
+      {decodeFailed && <p role="alert">{imageDecodeError}</p>}
       <label>Image description <input name="alt" maxLength={180} placeholder={dish.name} /></label>
-      <button disabled={busy || !file || (limitReached && !replaceId)}>Upload photo</button>
+      <button disabled={busy || !file || decodeFailed || (limitReached && !replaceId)}>Upload photo</button>
     </form>
   </section>;
 }

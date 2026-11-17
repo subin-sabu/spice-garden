@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 export const centeredCrop = { zoom: 1, x: 0.5, y: 0.5 };
+export const imageAccept = 'image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif';
+export const imageDecodeError = 'This image could not be opened. Choose a valid JPEG, PNG, WebP, or AVIF supported by your browser.';
 const clamp = (value) => Math.max(0, Math.min(1, value));
 
 export function cropRect(width, height, ratio, { zoom, x, y }) {
@@ -90,12 +92,15 @@ async function webp(bitmap, width, height, crop, targetBytes, aspect) {
 
 export async function optimizePhoto(file, crop, banner = false) {
   if (!file?.size || file.size > 15 * 1024 * 1024) throw new Error('Choose an image of up to 15 MB.');
-  if (file.type && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Choose a JPEG, PNG, or WebP image.');
+  if (!['image/jpeg', 'image/png', 'image/webp', 'image/avif'].includes(file.type) &&
+      !/\.(jpe?g|png|webp|avif)$/i.test(file.name ?? '')) {
+    throw new Error('Choose a JPEG, PNG, WebP, or AVIF image.');
+  }
   const url = URL.createObjectURL(file);
   const bitmap = new Image();
   bitmap.src = url;
   try {
-    await bitmap.decode();
+    await bitmap.decode().catch(() => { throw new Error(imageDecodeError); });
     const { naturalWidth: width, naturalHeight: height } = bitmap;
     if (banner) {
       const region = cropRect(width, height, 16 / 9, crop);

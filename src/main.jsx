@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BackToTop } from './BackToTop.jsx';
 import { InstallPrompt } from './InstallPrompt.jsx';
 import { keralaDate, isSpecial, isAvailable, formatPrice, dishMedia, homepageCopy, matchesSearch, searchTerms, homepageCollections } from './menu.js';
 import { Icon } from './Icon.jsx';
@@ -187,10 +188,30 @@ function App() {
         </section>
       </main>
 
-      <footer><div className="frame footer-inner">
-        <div><strong>Spice Garden Restaurant</strong><p>Aadisaktthi Resorts &amp; Spa · Vellar, Kovalam</p></div>
-        <p>Please ask your server about allergens and availability.</p>
-      </div></footer>
+      <footer className="restaurant-footer">
+        <div className="frame">
+          <div className="restaurant-footer-main">
+            <div className="restaurant-footer-brand">
+              <img src="/icons/logo.png" alt="" width="52" height="52" />
+              <div>
+                <strong>Spice Garden Restaurant</strong>
+                <p>Aadisaktthi Resorts &amp; Spa</p>
+              </div>
+            </div>
+            <div>
+              <address>227/A, K.S. Road, Vellar, Kovalam<br />Trivandrum, Kerala 695527</address>
+              <a href="https://www.aadisaktthiresorts.com/">Aadisaktthi official website</a>
+            </div>
+          </div>
+          <p className="restaurant-footer-note">Please ask your server about allergens and availability.</p>
+          <div className="restaurant-footer-meta">
+            <span>© {date.slice(0, 4)} Spice Garden Restaurant. All rights reserved.</span>
+            <span>Designed and developed by @the.digital_apex</span>
+          </div>
+        </div>
+      </footer>
+
+      <BackToTop />
 
       {categoryPickerOpen && <Modal titleId="category-picker-title" className="category-picker-modal"
         onDismiss={() => setCategoryPickerOpen(false)}>

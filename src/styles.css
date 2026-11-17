@@ -100,10 +100,6 @@ p, h1, h2, h3, ul { margin: 0; }
 
 .notice { padding: 24px 14px; text-align: center; border: 1px dashed #d6c8ae; border-radius: 9px; color: var(--muted); margin-top: 18px; }
 .notice button { margin-top: 8px; padding: 8px 12px; min-height: 44px; border: 1px solid #d6c8ae; border-radius: 7px; background: var(--paper); color: var(--ink); font-size: 13px; font-weight: 700; }
-footer { padding: 22px 0; border-top: 1px solid var(--line); color: var(--muted); background: #eee9dd; }
-.footer-inner { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
-.footer-inner strong { color: var(--ink); font: 700 17px var(--serif); }
-.footer-inner p { margin-top: 3px; font-size: 12px; line-height: 1.5; }
 
 @media (max-width: 920px) {
   .dishes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -131,7 +127,6 @@ footer { padding: 22px 0; border-top: 1px solid var(--line); color: var(--muted)
   .dish-description { -webkit-line-clamp: 3; font-size: 12px; line-height: 17px; }
   .dish-price { font-size: 16px; line-height: 22px; }
   .dish-bottom { padding: 5px 10px 5px 12px; }
-  .footer-inner { align-items: flex-start; flex-direction: column; gap: 5px; }
 }
 
 .install-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 9px 12px; margin-top: 14px; padding: 10px 12px; border: 1px solid #cbd8b6; border-radius: 10px; background: #edf3e3; color: #204a35; }
@@ -159,3 +154,17 @@ footer { padding: 22px 0; border-top: 1px solid var(--line); color: var(--muted)
 .dish-photo-loading { opacity: 0; }
 .pick-visual { display: block; width: 100%; aspect-ratio: 12 / 7; overflow: hidden; }
 .pick-visual img, .admin-dish-preview-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+.restaurant-footer { margin-top: 34px; padding: 28px 0 20px; border-top: 1px solid #dce5d9; background: #eff3eb; color: #344b3a; }
+.restaurant-footer-main { display: flex; justify-content: space-between; align-items: center; gap: 16px 28px; flex-wrap: wrap; }
+.restaurant-footer-brand { display: flex; align-items: center; gap: 10px; }
+.restaurant-footer-brand img { flex: none; }
+.restaurant-footer-brand strong { color: var(--green); font: 700 19px var(--serif); }
+.restaurant-footer p, .restaurant-footer address { margin: 4px 0; font: normal 13px/1.5 system-ui, sans-serif; }
+.restaurant-footer a { color: var(--green); font-size: 13px; text-underline-offset: 3px; }
+.restaurant-footer .restaurant-footer-note { margin-top: 14px; }
+.restaurant-footer-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px 18px; margin-top: 16px; padding-top: 12px; border-top: 1px solid #d2ded2; color: #54655a; font-size: 11px; }
+
+.back-to-top { position: fixed; right: max(14px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 7; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #cbd8c9; border-radius: 50%; background: var(--paper); color: var(--green); box-shadow: 0 2px 9px #20382b26; cursor: pointer; }
+body:has(.plate-bar) .back-to-top { bottom: calc(68px + max(10px, env(safe-area-inset-bottom))); }
+.back-to-top:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }

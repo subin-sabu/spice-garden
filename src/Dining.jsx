@@ -14,17 +14,23 @@ function DishMeta({ item, date }) {
   );
 }
 
+export function DishPhoto({ src, alt = '', loading = 'lazy' }) {
+  const [loaded, setLoaded] = useState(null);
+  const [failed, setFailed] = useState(null);
+  if (!src || failed === src) return null;
+  return <img className={loaded === src ? 'dish-photo-ready' : 'dish-photo-loading'} src={src}
+    alt={loaded === src ? alt : ''} width="720" height="420" loading={loading} decoding="async"
+    onLoad={() => setLoaded(src)} onError={() => setFailed(src)} />;
+}
+
 export function DishCard({ item, index, onOpen, plateAction }) {
   const { images } = dishMedia(item);
-  const [badImage, setBadImage] = useState(null);
   const cover = item.thumbnail_url ?? images[0];
-  const photo = cover !== badImage ? cover : null;
   const available = isAvailable(item);
   return (
     <article className="dish-card">
       <div className="dish-visual">
-        {photo && <img src={photo} alt={item.name} width="720" height="480"
-          loading={index < 3 ? 'eager' : 'lazy'} decoding="async" onError={() => setBadImage(photo)} />}
+        <DishPhoto src={cover} alt={item.name} loading={index < 3 ? 'eager' : 'lazy'} />
       </div>
       <div className="dish-content">
         <div>
@@ -75,7 +81,6 @@ export function Modal({ titleId, className, onDismiss, children }) {
 
 function Gallery({ images, name, altText }) {
   const [index, setIndex] = useState(0);
-  const [badImages, setBadImages] = useState([]);
   const touchStart = useRef(null);
 
   function step(direction) {
@@ -95,9 +100,8 @@ function Gallery({ images, name, altText }) {
           touchStart.current = null;
           if (Math.abs(dx) > 38 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1);
         }} onTouchCancel={() => { touchStart.current = null; }}>
-          {badImages.includes(images[index]) ? <p className="media-unavailable">This photo is unavailable right now.</p> :
-            <img key={images[index]} src={images[index]} alt={altText?.[images[index]] || `${name} · photo ${index + 1}`}
-              onError={() => setBadImages((previous) => [...previous, images[index]])} />}
+          <DishPhoto key={images[index]} src={images[index]} loading="eager"
+            alt={altText?.[images[index]] || `${name} · photo ${index + 1}`} />
           {images.length > 1 && <>
             <button className="gallery-arrow prev" type="button" onClick={() => step(-1)} aria-label="Previous photo"><Icon name="left" /></button>
             <button className="gallery-arrow next" type="button" onClick={() => step(1)} aria-label="Next photo"><Icon name="right" /></button>
@@ -123,7 +127,7 @@ export function DishDialog({ item, date, pairing, onOpenPairing, onDismiss, plat
         <h2 id="dish-title">{item.name}</h2>
         <p className="dish-detail-price">{formatPrice(item.price_paise)}{!isAvailable(item) && <span>Currently unavailable</span>}</p>
       </div>
-      {images.length > 0 && <Gallery images={images} name={item.name} altText={item.gallery_alts} />}
+      <Gallery images={images} name={item.name} altText={item.gallery_alts} />
       <div className="dish-story">
         <p>{item.description || 'Your server can tell you more about this dish.'}</p>
         {pairing && <aside className="dish-pairing">

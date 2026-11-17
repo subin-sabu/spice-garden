@@ -18,5 +18,5 @@ body:has(.plate-bar) { padding-bottom: 65px; }
 .plate-summary li { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); padding: 10px 0; }
 .plate-summary li p { color: var(--muted); font-size: 13px; }
 .plate-total { display: flex; justify-content: space-between; gap: 8px; }
-.detail-plate { margin-top: 12px; }
+.detail-plate { display: flex; justify-content: flex-end; margin-top: 12px; }
 .pick-open { display: block; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; color: inherit; }

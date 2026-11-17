@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { checked, createRecoveryClient, loadMenu, photos, photoUrl, supabase } from './backend.js';
 import './admin.css';
-import { Modal } from './Dining.jsx';
+import { DishPhoto, Modal } from './Dining.jsx';
 import { PasswordField } from './PasswordField.jsx';
 import { dishMedia, homepageCopy, matchesSearch, searchTerms } from './menu.js';
 import { centeredCrop, CropControls, imageAccept, imageDecodeError, optimizePhoto } from './photo-crop.jsx';
@@ -206,6 +206,7 @@ function Workspace({ run, busy, message, setMessage }) {
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('Availability');
   const [selected, setSelected] = useState('');
+  const [dishSearch, setDishSearch] = useState('');
   const panelTitle = useRef(null);
   const tabs = useRef(null);
   const [dishAction, setDishAction] = useState(null);
@@ -225,6 +226,7 @@ function Workspace({ run, busy, message, setMessage }) {
     if (window.location.hash === '#dish-photos') {
       window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
     }
+    setDishSearch('');
     setSelected(nextSelection);
     setTab(nextTab);
   }
@@ -265,6 +267,8 @@ function Workspace({ run, busy, message, setMessage }) {
   const rows = tab === 'Categories' ? data.categories : data.collections;
   const dish = data.items.find((item) => item.id === selected);
   const collection = data.collections.find((item) => item.id === selected);
+  const dishTerms = searchTerms(dishSearch);
+  const dishResults = dishTerms.length ? data.items.filter((item) => matchesSearch(dishTerms, item.name)) : [];
   const categoryDishes = tab === 'Categories' ? data.items.filter((item) => item.category === selected) : [];
   const collectionCount = tab === 'Collections' ? data.memberships.filter((row) => row.collection_id === selected).length : 0;
   return <>
@@ -287,6 +291,19 @@ function Workspace({ run, busy, message, setMessage }) {
     <section className="admin-panel" key={JSON.stringify([tab, selected])} aria-label={tab} aria-busy={busy}>
     <h2 className="admin-panel-title" ref={panelTitle} tabIndex={-1}>{tab}</h2>
     {tab === 'Dishes' && <>
+      <label>Search dishes <input type="search" value={dishSearch} disabled={busy}
+        onChange={(event) => setDishSearch(event.target.value)} /></label>
+      {dishTerms.length > 0 && <div className="admin-dish-search">
+        <p role="status">{dishResults.length ? `${dishResults.length} matching dishes` : 'No matching dishes.'}</p>
+        {dishResults.length > 0 && <ul aria-label="Matching dishes">
+          {dishResults.map((item) => <li key={item.id}>
+            <button type="button" disabled={busy} onClick={() => {
+              if (selected === item.id) setDishSearch('');
+              else navigate('Dishes', item.id);
+            }}>{item.name}</button>
+          </li>)}
+        </ul>}
+      </div>}
       <label>Choose dish <select disabled={busy} value={selected} onChange={(event) => navigate(tab, event.target.value)}>
         <option value="">New dish</option>{data.items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select></label>
@@ -332,7 +349,8 @@ function Workspace({ run, busy, message, setMessage }) {
         blockedReason={categoryDishes.length ? `Move all ${categoryDishes.length} dishes before deleting this category.` :
           collectionCount ? `Remove all ${collectionCount} dishes before deleting this collection.` : ''} />
       {tab === 'Categories' && selected && <CategoryDishes dishes={categoryDishes} categories={data.categories}
-        categoryId={selected} busy={busy} save={save} />}
+        categoryId={selected} busy={busy} save={save} message={message} setMessage={setMessage}
+        onOpen={(id) => navigate('Dishes', id)} />}
       {tab === 'Collections' && collection && <MembershipEditor collection={collection} data={data} busy={busy} run={run} refresh={refresh} />}
     </>}
     {tab === 'Homepage' && <>
@@ -345,20 +363,35 @@ function Workspace({ run, busy, message, setMessage }) {
   </>;
 }
 
-function CategoryDishes({ dishes, categories, categoryId, busy, save }) {
+function CategoryDishes({ dishes, categories, categoryId, busy, save, message, setMessage, onOpen }) {
+  const [move, setMove] = useState(null);
+  const source = categories.find((category) => category.id === categoryId);
+  const destination = categories.find((category) => category.id === move?.categoryId);
   return <section className="admin-form">
     <h2>Dishes in this category ({dishes.length})</h2>
     {dishes.length === 0 ? <p>This category is empty.</p> : <ul className="admin-availability admin-category-dishes">
       {dishes.map((dish) => <li key={dish.id}>
-        <strong>{dish.name}</strong>
+        <button className="admin-category-dish-link" type="button" disabled={busy} onClick={() => onOpen(dish.id)}>{dish.name}</button>
         <select aria-label={`Move ${dish.name} to another category`} value="" disabled={busy || categories.length < 2}
-          onChange={(event) => save('menu_items', { category: event.target.value }, dish.id)}>
+          onChange={(event) => { setMessage(''); setMove({ dish, categoryId: event.target.value }); }}>
           <option value="" disabled>Move to…</option>
           {categories.filter((entry) => entry.id !== categoryId).map((entry) =>
             <option value={entry.id} key={entry.id}>{entry.name}</option>)}
         </select>
       </li>)}
     </ul>}
+    {move && destination && <Modal titleId="category-move-title" className="admin-dish-modal"
+      onDismiss={() => { if (!busy) setMove(null); }}>
+      <h2 id="category-move-title">Move dish to another category?</h2>
+      <p><strong>{move.dish.name}</strong> will move from <strong>{source?.name}</strong> to <strong>{destination.name}</strong>.</p>
+      {message && <p role="status">{message}</p>}
+      <div className="admin-actions">
+        <button type="button" disabled={busy} onClick={() => setMove(null)}>Cancel</button>
+        <button type="button" className="admin-move-confirm" disabled={busy} onClick={async () => {
+          if (await save('menu_items', { category: destination.id }, move.dish.id)) setMove(null);
+        }}>{busy ? 'Moving…' : 'Move dish'}</button>
+      </div>
+    </Modal>}
   </section>;
 }
 
@@ -471,7 +504,7 @@ function DishEditor({ dish, data, save, busy, onDraft, remove }) {
     <label><input name="published" type="checkbox" checked={published} onChange={(event) => setPublished(event.target.checked)} /> Published</label>
     <label><input name="available" type="checkbox" checked={available} onChange={(event) => setAvailable(event.target.checked)} /> Available</label>
     <details className="admin-preview"><summary>Preview dish</summary>
-      {previewPhoto && <img className="admin-crop" src={previewPhoto} alt={name} />}
+      <div className="admin-crop admin-dish-preview-photo"><DishPhoto src={previewPhoto} alt={name} /></div>
       <article><h3>{name || 'Dish name'}</h3><p>{shortDescription || description}</p></article>
       {description && <p>{description}</p>}
     </details>

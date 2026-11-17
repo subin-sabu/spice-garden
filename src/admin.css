@@ -127,3 +127,11 @@
 .admin-dish-modal h2 { margin: 0 38px 0 0; }
 .admin-dish-modal .modal-close { min-width: 36px; min-height: 36px; padding: 0; }
 .admin .admin-delete-confirm { background: #8b2c27; color: white; }
+
+.admin .admin-category-dish-link { width: 100%; padding: 4px 0; border: 0; background: transparent; text-align: left; overflow-wrap: anywhere; }
+.admin-category-dish-link:hover { text-decoration: underline; }
+.admin .admin-move-confirm { background: var(--green); color: white; }
+.admin-dish-search ul { list-style: none; margin: 6px 0 0; padding: 0; max-height: 240px; overflow: auto; }
+.admin-dish-search li + li { margin-top: 4px; }
+.admin-dish-search button { width: 100%; text-align: left; }
+.admin-dish-preview-photo { overflow: hidden; }

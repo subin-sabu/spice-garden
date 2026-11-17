@@ -152,3 +152,10 @@ footer { padding: 22px 0; border-top: 1px solid var(--line); color: var(--muted)
 .category-picker-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 8px; }
 .category-picker-grid button { padding: 8px 10px; min-height: 44px; text-align: left; overflow-wrap: anywhere; }
 .category-picker-grid button[aria-pressed=true] { background: var(--green); color: white; }
+
+.dish-visual, .pick-visual, .admin-dish-preview-photo {
+  background: #eef2e8 url('/dish-placeholder.svg') center / cover no-repeat;
+}
+.dish-photo-loading { opacity: 0; }
+.pick-visual { display: block; width: 100%; aspect-ratio: 12 / 7; overflow: hidden; }
+.pick-visual img, .admin-dish-preview-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }

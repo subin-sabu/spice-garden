@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { InstallPrompt } from './InstallPrompt.jsx';
 import { keralaDate, isSpecial, isAvailable, formatPrice, dishMedia, homepageCopy, matchesSearch, searchTerms, homepageCollections } from './menu.js';
 import { Icon } from './Icon.jsx';
-import { DishCard, DishDialog, Modal } from './Dining.jsx';
+import { DishCard, DishDialog, DishPhoto, Modal } from './Dining.jsx';
 import './styles.css';
 import { liveMenuEnabled, loadGuestMenu, photoUrl } from './backend.js';
 import { Plate, PlateButton, usePlate } from './Plate.jsx';
@@ -131,7 +131,7 @@ function App() {
               const photo = item.thumbnail_url ?? dishMedia(item).images[0];
               return <article key={item.id} className="pick-card">
                 <button className="pick-open" type="button" onClick={() => openDish(item)} aria-label={`Explore ${item.name}`}>
-                  {photo && <img src={photo} alt="" width="720" height="480" loading="lazy" />}
+                  <span className="pick-visual"><DishPhoto src={photo} /></span>
                   <span className="pick-content"><span><strong>{item.name}</strong>
                     <span className="pick-note">{item.tasting_note || item.short_description || item.description}</span></span><Icon name="right" size={19} /></span>
                 </button>

@@ -51,7 +51,7 @@ body:has(.dining-modal[open]) { overflow: hidden; }
   aspect-ratio: 16 / 10;
   overflow: hidden;
   border-radius: 11px;
-  background: #252e21;
+  background: #eef2e8 url('/dish-placeholder.svg') center / cover no-repeat;
   touch-action: pan-y;
 }
 .gallery-stage img { position: absolute; width: 100%; height: 100%; inset: 0; }

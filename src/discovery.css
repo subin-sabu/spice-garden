@@ -62,7 +62,7 @@
   background: var(--paper);
   text-align: left;
 }
-.pick-card img { display: block; width: 100%; height: clamp(110px, 14vw, 178px); object-fit: cover; }
+.pick-card .pick-visual { height: clamp(110px, 14vw, 178px); }
 .pick-card:hover { border-color: #a89573; }
 .pick-content { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 9px; padding: 12px 13px; }
 .pick-content strong { font: 700 23px/1.12 var(--serif); }

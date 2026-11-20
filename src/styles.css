@@ -172,4 +172,4 @@ body:has(.plate-bar) .back-to-top { bottom: calc(68px + max(10px, env(safe-area-
 .brand .brand-wordmark { width: clamp(190px, 45vw, 300px); height: auto; object-fit: contain; }
 .bar-inner { min-height: 88px; }
 .restaurant-footer-brand img, .install-banner > img { object-fit: contain; }
-.dish-card { cursor: pointer; }
+.dish-card > .dish-visual, .dish-card > .dish-content { cursor: pointer; }

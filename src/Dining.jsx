@@ -27,16 +27,16 @@ export function DishCard({ item, index, onOpen, plateAction }) {
   const { images } = dishMedia(item);
   const cover = item.thumbnail_url ?? images[0];
   const available = isAvailable(item);
+  const openDetails = () => {
+    if (window.getSelection()?.toString()) return;
+    onOpen();
+  };
   return (
-    <article className="dish-card" onClick={(event) => {
-      if (event.target.closest('button, a, input, select, textarea, label, [role="button"]')) return;
-      if (window.getSelection()?.toString()) return;
-      onOpen();
-    }}>
-      <div className="dish-visual">
+    <article className="dish-card">
+      <div className="dish-visual" onClick={openDetails}>
         <DishPhoto src={cover} alt={item.name} loading={index < 3 ? 'eager' : 'lazy'} />
       </div>
-      <div className="dish-content">
+      <div className="dish-content" onClick={openDetails}>
         <div>
           <div className="dish-heading">
             {item.diet !== 'unknown' && <span className={`diet-dot ${item.diet}`} role="img"

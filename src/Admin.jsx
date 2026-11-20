@@ -6,6 +6,9 @@ import { PasswordField } from './PasswordField.jsx';
 import { dishMedia, homepageCopy, matchesSearch, searchTerms } from './menu.js';
 import { centeredCrop, CropControls, imageAccept, imageDecodeError, optimizePhoto } from './photo-crop.jsx';
 
+// Keep recovery available for a future rollout.
+const showPasswordRecovery = false;
+
 const blankDish = { name: '', category: '', description: '', short_description: '', diet: 'veg',
   price_paise: null, paired_item_id: null, published: false, is_available: true, sort_order: 0 };
 function photoId() {
@@ -109,10 +112,16 @@ export default function Admin() {
   async function check() {
     const { session } = await checked(supabase.auth.getSession());
     if (!session) { setStage('login'); return; }
+    const authorised = await checked(supabase.rpc('is_menu_staff'));
+    if (!authorised) {
+      await signOut();
+      setMessage('Your account is signed in, but admin access has not been approved. Ask the project owner to run supabase/add-admin.sql for your email.');
+      return;
+    }
     const deadline = Date.parse(await checked(supabase.rpc('menu_admin_expires_at')));
     if (!(deadline > Date.now())) {
       await signOut();
-      setMessage('This account has no active admin session. Use the authorised staff email and password.');
+      setMessage('Your admin session has expired. Sign in again with your staff email and password.');
       return;
     }
     setAccount(session.user.email ?? '');
@@ -180,7 +189,7 @@ export default function Admin() {
           <label>Email <input name="email" type="email" autoComplete="username" required /></label>
           <PasswordField label="Password" name="password" autoComplete="current-password" />
           <button type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-          <button type="button" disabled={busy} onClick={() => { setMessage(''); setStage('forgot'); }}>Forgot password?</button>
+          {showPasswordRecovery && <button type="button" disabled={busy} onClick={() => { setMessage(''); setStage('forgot'); }}>Forgot password?</button>}
         </form>}
         {stage === 'forgot' && <form className="admin-login" onSubmit={requestCode}>
           <label>Staff email <input name="email" type="email" autoComplete="email" defaultValue={recoveryEmail} required /></label>

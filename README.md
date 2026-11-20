@@ -28,11 +28,10 @@ Open the printed URL with `?table=07` to try the guest flow. Configure Supabase 
 3. Copy `.env.example` to `.env.local`. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from the Supabase **Connect** dialog. Add those same variables in Netlify and trigger a new build. Keep service-role keys out of the frontend.
 4. In **Authentication**, enable the **Email** provider and disable **Allow new users to sign up**. If the project is dedicated to this menu, disable the previously configured Google provider.
 5. In **Authentication → Users**, create an email/password user and auto-confirm the email. If the email already exists, assign a password to that account using the Supabase Auth Admin API from a trusted server, or create a separate confirmed staff account. Copy the UUID of the account that will manage the menu.
-6. In SQL Editor, run the following with the staff user's real UUID. This replaces any previous admin allowlist entry.
+6. In SQL Editor, run the following with the staff user's real UUID. This adds an administrator while preserving existing administrators.
 
    ```sql
    begin;
-   delete from private.menu_admin where user_id <> 'REPLACE-WITH-STAFF-USER-UUID'::uuid;
    insert into private.menu_admin (user_id)
    values ('REPLACE-WITH-STAFF-USER-UUID'::uuid)
    on conflict (user_id) do nothing;
@@ -42,7 +41,15 @@ Open the printed URL with `?table=07` to try the guest flow. Configure Supabase 
 7. Open `/admin` and sign in. Save a test dish, add a photo, and open the public menu in a private window to verify the thumbnail and gallery. Also verify that a user outside the allowlist cannot enter the dashboard.
 8. The app signs the browser out after two hours. Database and Storage rules independently deny admin access after that deadline.
 
+## Add more administrators
+
+Create each staff account in **Authentication → Users → Create new user** with an email, password and auto-confirmed email. Then open `supabase/add-admin.sql`, replace `REPLACE-WITH-ADMIN-EMAIL` with the approved account's email, and run it in SQL Editor. Repeat for each admin. Existing administrators retain access. The user can then sign in at `/admin` with that email and password.
+
+Allowing public signups creates authentication accounts. Admin permissions are granted separately through `private.menu_admin`. Unapproved users see an access-approval message.
+
 ## Password recovery
+
+The Forgot password link is temporarily hidden with `showPasswordRecovery = false` in `src/Admin.jsx`. The recovery code remains available for a later rollout.
 
 In the Supabase **Reset password** email template, replace the confirmation link with the code variable. For example:
 

@@ -168,3 +168,8 @@ p, h1, h2, h3, ul { margin: 0; }
 .back-to-top { position: fixed; right: max(14px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 7; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #cbd8c9; border-radius: 50%; background: var(--paper); color: var(--green); box-shadow: 0 2px 9px #20382b26; cursor: pointer; }
 body:has(.plate-bar) .back-to-top { bottom: calc(68px + max(10px, env(safe-area-inset-bottom))); }
 .back-to-top:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+
+.brand .brand-wordmark { width: clamp(190px, 45vw, 300px); height: auto; object-fit: contain; }
+.bar-inner { min-height: 88px; }
+.restaurant-footer-brand img, .install-banner > img { object-fit: contain; }
+.dish-card { cursor: pointer; }

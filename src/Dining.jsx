@@ -28,7 +28,11 @@ export function DishCard({ item, index, onOpen, plateAction }) {
   const cover = item.thumbnail_url ?? images[0];
   const available = isAvailable(item);
   return (
-    <article className="dish-card">
+    <article className="dish-card" onClick={(event) => {
+      if (event.target.closest('button, a, input, select, textarea, label, [role="button"]')) return;
+      if (window.getSelection()?.toString()) return;
+      onOpen();
+    }}>
       <div className="dish-visual">
         <DishPhoto src={cover} alt={item.name} loading={index < 3 ? 'eager' : 'lazy'} />
       </div>

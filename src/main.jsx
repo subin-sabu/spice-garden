@@ -101,7 +101,7 @@ function App() {
     <>
       <header className="topbar">
         <div className="frame bar-inner">
-          <a className="brand" href="#top"><img src="/icons/logo.png" alt="" width="42" height="42" /><span><strong>Spice Garden</strong><small>BY AADISAKTTHI</small></span></a>
+          <a className="brand" href="#top" aria-label="Spice Garden Restaurant"><img className="brand-wordmark" src="/icons/brand-logo.webp" alt="Spice Garden Restaurant" width="1100" height="309" /></a>
           {tableLabel && <span className="table-context">Table {tableLabel}</span>}
         </div>
       </header>

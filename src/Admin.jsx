@@ -165,7 +165,7 @@ export default function Admin() {
   return <main className="admin frame">
     {stage === 'ready' ? <>
       <header className="admin-header">
-        <div><a className="admin-brand" href="/"><img src="/icons/logo.png" alt="" width="24" height="24" />Spice Garden · View guest menu</a><h1>Menu management</h1></div>
+        <div><a className="admin-brand" href="/"><img className="brand-wordmark" src="/icons/brand-logo.webp" alt="Spice Garden Restaurant" width="1100" height="309" /><span>View guest menu</span></a><h1>Menu management</h1></div>
         <div className="admin-account">
           <span>{account}</span>
           <button onClick={() => run(signOut)} disabled={busy}>Sign out</button>
@@ -175,7 +175,7 @@ export default function Admin() {
       <Workspace run={run} busy={busy} message={message} setMessage={setMessage} />
     </> : <section className="admin-access">
       <div className="admin-access-photo">
-        <a className="admin-brand" href="/"><img src="/icons/logo.png" alt="" width="44" height="44" />Spice Garden</a>
+        <a className="admin-brand" href="/"><img className="brand-wordmark" src="/icons/brand-logo.webp" alt="Spice Garden Restaurant" width="1100" height="309" /></a>
         <p>By Aadisaktthi · Kovalam</p>
       </div>
       <div className="admin-access-content">

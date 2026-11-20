@@ -111,7 +111,6 @@
 .password-field > button { position: absolute; right: 1px; bottom: 1px; min-height: 0; height: calc(2.5rem - 2px); border: none; padding: 0 10px; background: transparent; display: grid; place-items: center; }
 
 .admin-brand { display: inline-flex; align-items: center; gap: 8px; }
-.admin-brand img { filter: brightness(0) saturate(100%) invert(91%) sepia(20%) saturate(429%) hue-rotate(26deg) brightness(105%); }
 
 .admin-panel-title { scroll-margin-top: 18px; }
 
@@ -135,3 +134,6 @@
 .admin-dish-search li + li { margin-top: 4px; }
 .admin-dish-search button { width: 100%; text-align: left; }
 .admin-dish-preview-photo { overflow: hidden; }
+
+.admin-brand .brand-wordmark { width: min(270px, 65vw); height: auto; object-fit: contain; }
+.admin-brand { flex-wrap: wrap; }
